@@ -3,8 +3,6 @@
 
 # fsCacheController
 WordPress library for caching arbitrary data with automatic invalidation 
-<br>
-<br>
 <hr>
 fsCacheController is WordPress library for caching arbitrary data with automatic invalidation.<br>
 It is framework-agnostic so no other packages are needed for its proper operation.<br>
@@ -19,6 +17,7 @@ access database several times to prepare HTML content,<br>
 for example: navigation block, category tree, footer, latest blog posts block, related products block,...<br>
 <br>
 <br>
+
 # Usage:<br>
 <br>
 Put this in "functions.php" of yours theme to initialize controller where parameter is path to configuration file:<br>
@@ -69,8 +68,11 @@ $Data= CacheController::Profile('Movies')->Get('full-movie-data-'.$ID, function(
 <br>
 
 Note: identifiers must contain only filename-safe chars (regex: "A-Za-z0-9~_!&= \|\.\-\+")<br>
-easiest method to ensure that is to pass it through md5 func, like:  CacheController::Profile('IMDB')->Get(md5($URL), function() {...<br>
-<br>
+easiest method to ensure that is to pass it through md5 func, like: 
+``` 
+CacheController::Profile('IMDB')->Get(md5($URL), function() {...
+```
+
 
 ##3rd parameter
 Methods Get and Output has 3rd parameter "OnCacheHit" where you can put code block (closure) 
