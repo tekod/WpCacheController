@@ -74,7 +74,7 @@ CacheController::Profile('IMDB')->Get(md5($URL), function() {...
 ```
 
 
-##3rd parameter
+## 3rd parameter
 Methods Get and Output has 3rd parameter "OnCacheHit" where you can put code block (closure) 
 that should be executed if content is returned from cache (meaning that main closure was not executed).
 
