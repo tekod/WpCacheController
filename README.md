@@ -7,28 +7,28 @@ WordPress library for caching arbitrary data with automatic invalidation
 fsCacheController is WordPress library for caching arbitrary data with automatic invalidation.
 It is framework-agnostic so no other packages are needed for its proper operation.
 
-This lib constantly updates log and statistics records to inform administrator about cache usage.
+This lib constantly updates log and statistics records to inform an administrator about cache usage.
 
 There is admin dashboard settings page where administrator can enable/disable caching function
 and see log records and statistics.
 
 Typical usage for this library is to substitute code blocks that have to 
 access database several times to prepare HTML content,
-for example: navigation block, category tree, footer, latest blog posts block, related products block,...
+for example: navigation block, category tree, footer, the latest blog posts block, related products block,...
 
 
 # Usage:
 
-Put this in "functions.php" of yours theme to initialize controller where parameter is path to configuration file:<br>
+Put this in "functions.php" of yours theme to initialize the controller where parameter is path to configuration file:<br>
 ```
-use FWS\CacheController\CacheController;
+use FWS\fsCacheController\CacheController;
 require_once 'inc/fsCacheController/CacheController.php';  // optional if you use some autoloader
 CacheController::Init(__DIR__.'/config/cachecontroller.config.php');
 ```
 
 
 Example of configuration is part of this lib.
-It is highly recommanded to clone (and rename) configuration file outside of lib directory and edit content there, just like in code above. 
+It is highly recommended to clone (and rename) configuration file outside of lib directory and edit content there, just like in code above. 
 That way you can safely update library without losing configuration.
 
 
@@ -40,7 +40,7 @@ CacheController::Profile('eCommerce')->Output('product menu', function() {
 ```
 
 
-Here is how to pass parameter to inner function (closure) to create dynamic identifer:
+Here is how to pass parameter to inner function (closure) to create a dynamic identifier:
 ```
 CacheController::Profile('Shop')->Output('product-page-'.$ProductID, function() use ($ProductID) {
      $Product= new MyProduct($ProductID);
@@ -52,7 +52,7 @@ CacheController::Profile('Shop')->Output('product-page-'.$ProductID, function() 
 
 
 Instead of echoing content use "Get()" to just return arbitrary data,
-typical usecase is to replace fetching values from database with heavy SQL queries
+typical use case is to replace fetching values from a database with heavy SQL queries
 ```
 $Data= CacheController::Profile('Movies')->Get('full-movie-data-'.$ID, function() use ($ID) {
      return [
@@ -75,10 +75,10 @@ CacheController::Profile('IMDB')->Get(md5($URL), function() {...
 
 ## 3rd parameter
 Methods Get and Output has 3rd parameter "OnCacheHit" where you can put code block (closure) 
-that should be executed if content is returned from cache (meaning that main closure was not executed).
+that should be executed if content is returned from cache (meaning main closure was not executed).
 
-Example for usecase using this feature can be caching template block containing ContactForm7 shortcode
-because beside echoing HTML this plugin rely on actions to include some javascript. 
+Example for use case using this feature can be caching template block containing ContactForm7 shortcode
+because beside echoing HTML this plugin relies on actions to include some javascript. 
 Using 3rd parameter you can execute all that side-effects to simulate normal environment 
 and ensure plugin proper operation, in this case: echoing missing javascript code. 
 

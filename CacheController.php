@@ -1,4 +1,4 @@
-<?php namespace FWS\CacheController;
+<?php namespace FWS\fsCacheController;
 
 
 /**
@@ -27,6 +27,9 @@ class CacheController {
     // buffer for statistics
     protected $Stats= [];
 
+    // buffer for in-closure stats
+    protected $InClosureStats= [0,0];
+
     // singleton instance
     protected static $Instance;
 
@@ -34,11 +37,11 @@ class CacheController {
     /**
      * Instantiate and initialize main object.
      *
-     * @param array $ConfigPath
+     * @param string $ConfigPath
      */
     public static function Init($ConfigPath) {
 
-        // load config
+        // load config (dynamic inclusion)
         $Config= include $ConfigPath;
 
         // add missing config options
@@ -76,7 +79,9 @@ class CacheController {
 
 
     /**
-     * Contructor.
+     * Constructor.
+     *
+     * @param array $Config
      */
     protected function __construct($Config) {
 
@@ -145,7 +150,7 @@ class CacheController {
      * Return specified dealer object.
      *
      * @param string $Name  name of profile
-     * @return FWS\CacheController\Dealer
+     * @return Dealer
      */
     public function GetDealer($Name) {
 
@@ -167,8 +172,8 @@ class CacheController {
     /**
      * Synonym for "GetDealer" but in static context.
      *
-     * @param name $Name
-     * @return FWS\CacheController\Dealer
+     * @param string $Name
+     * @return Dealer
      */
     public static function Profile($Name) {
 
@@ -183,15 +188,21 @@ class CacheController {
      */
     public static function GetSettings() {
 
-        return [
-            'Enabled'=> boolval(get_option('fsCacheController_Enabled', '')),
-            'Logging'=> boolval(get_option('fsCacheController_Logging', '')),
+        $SettingsDump= get_option('fsCacheController_Settings');
+        $Settings= @unserialize($SettingsDump);
+        if (!is_array($Settings)) {
+            $Settings= [];
+        }
+        return $Settings + [
+            'Enabled'=> false,
+            'Logging'=> false,
+            'Widget' => false,
         ];
     }
 
 
     /**
-     * Listener of all actions.
+     * This method is listener of "all" hook action.
      */
     public function OnAllAction() {
 
@@ -213,6 +224,18 @@ class CacheController {
                 //$this->Log("[GroupAction: {$Name}]  triggered by action: {$HookName}");
                 do_action("$Name($HookName)");
             }
+        }
+    }
+
+
+    /**
+     * Clear all caches.
+     */
+    public function InvalidateAllProfiles() {
+
+        $Profiles= array_keys($this->Profiles);
+        foreach($Profiles as $Profile) {
+            $this->GetDealer($Profile)->Invalidate('Clearing cache');
         }
     }
 
@@ -245,7 +268,7 @@ class CacheController {
     /**
      * Autoloading handler.
      *
-     * @param type $Class
+     * @param string $Class
      * @return null|boolean
      */
     protected function Autoloader($Class) {
@@ -259,6 +282,7 @@ class CacheController {
         if (!is_file($Path)) {
             return null;
         }
+        // dynamic inclusion
         require $Path;
         return true;
     }
@@ -277,7 +301,7 @@ class CacheController {
         // ensure directory existence
         if (!is_dir($this->StorageDir)) {
             mkdir($this->StorageDir, 0777, true);
-            touch($this->StorageDir.'/'.$this->MasterTag);
+            //touch($this->StorageDir.'/'.$this->MasterTag);
         }
 
         // ensure logfile existence
@@ -349,13 +373,63 @@ class CacheController {
 
 
     /**
+     * Add event to in-closure statistics.
+     *
+     * @param float $Time
+     * @param int $QueryCount
+     */
+    public function AddInClosureStat($Time, $QueryCount) {
+
+        $this->InClosureStats[0] += $Time;
+        $this->InClosureStats[1] += $QueryCount;
+    }
+
+
+    /**
      * Shutdown handler. Used to update statistics log.
      */
     public function OnShutdown() {
 
-        if (!$this->LogEnabled || empty($this->Stats)) {
+        if ($this->LogEnabled && !empty($this->Stats)) {
+            $this->UpdateStats();
+        }
+
+        if ($this->Settings['Widget'] && !is_admin() && !wp_is_json_request() && (!defined('DOING_CRON') || !DOING_CRON)) {
+            $this->ShowWidget();
+        }
+    }
+
+
+    /**
+     * Display widget.
+     */
+    protected function ShowWidget() {
+
+        // don't show if a fatal has occurred
+        $LastError= error_get_last();
+        if ($LastError !== null && in_array($LastError['type'], array(E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR))) {
             return;
         }
+
+        ?>
+            <div id="fsCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
+				 style="position:fixed; padding:2px 2em; right:-3.8em; top:12rem; width:0;
+                	background-color:#fec; transition: all ease 1s; border:2px solid #000; border-left:6px double #000;
+                	z-index:9999; cursor:pointer; font-size:12px; line-height:14px; white-space:nowrap">
+                <b style="font-style:italic; color:gray; display:block; margin:2px 0 2px -1em;">fsCacheController</b>
+                Cache hits: <?php echo intval($this->Stats['Cache Hit'] ?? 0); ?><br>
+                Time in cache misses: <?php echo number_format($this->InClosureStats[0], 4); ?> s.<br>
+                Queries in cache misses: <?php echo intval($this->InClosureStats[1]); ?>
+            </div>
+        <?php
+    }
+
+
+    /**
+     * Update stats log record.
+     */
+    protected function UpdateStats() {
+
         $Path= $this->StorageDir.'/Stats.txt';
         // load and parse file
         $Lines= explode("\n", file_get_contents($Path));
@@ -381,9 +455,4 @@ class CacheController {
         file_put_contents($Path, implode("\n", $Stats));
     }
 
-
-
 }
-
-
-?>

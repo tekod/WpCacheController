@@ -37,13 +37,12 @@ return [
 
     // register these custom actions
     'CustomActions'=> [
-        \FWS\CacheController\InvalidateWooCommerce::class,
+        \FWS\fsCacheController\InvalidateWooCommerce::class,
      ],
 
     // enable internal autoloader
     'Autoloader'=> true,
 
     // directory where to store data
-    'Dir'=> wp_get_upload_dir()['basedir']."/fsCacheController2",
+    'Dir'=> wp_get_upload_dir()['basedir']."/fsCacheController",
 ];
-?>

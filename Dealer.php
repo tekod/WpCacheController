@@ -1,4 +1,4 @@
-<?php namespace FWS\CacheController;
+<?php namespace FWS\fsCacheController;
 
 
 /**
@@ -7,7 +7,6 @@
 class Dealer {
 
     // profile settings
-    protected $Controller;
     protected $Name;
     protected $InvalidatingActions;
     protected $TTL;
@@ -17,12 +16,18 @@ class Dealer {
     // regex list of allowed chars for entity keys
     protected $ValidNameChars= 'A-Za-z0-9~_!&= \|\.\-\+';
 
+    // main controller object
+    /** @var CacheController $Controller */
+    protected $Controller;
+
+    // buffer for measuring starting values
+    protected $MeasuringInfo;
 
 
     /**
      * Constructor.
      *
-     * @param ForwardSlash\CacheController\CacheController $Controller
+     * @param CacheController $Controller
      * @param array $Config
      */
     public function __construct($Controller, $Config) {
@@ -41,8 +46,8 @@ class Dealer {
      * Closure must echo content and return nothing.
      *
      * @param string $Identifier
-     * @param closure $Closure
-	 * @param closure $OnCacheHit
+     * @param callable $Closure
+	 * @param callable $OnCacheHit
      * @return null
      */
     public function Output($Identifier, $Closure, $OnCacheHit=null) {
@@ -53,7 +58,7 @@ class Dealer {
         // should bypass caching
         if (!$this->Enabled) {
             $this->Log('Cache Disabled  "'.$this->Name.'" / '.$Identifier);
-            call_user_func($Closure);
+            echo $this->ExecuteClosure($Closure, true);
             return;
         }
 
@@ -62,9 +67,7 @@ class Dealer {
 
         // execute closure if not found
         if ($Content === false) {
-            ob_start();
-            call_user_func($Closure);
-            $Content= ob_get_clean();
+            $Content= $this->ExecuteClosure($Closure, true);
             $this->Save($Identifier, $Content);
         } else if ($OnCacheHit) {
         	// otherwise execute on-cache-hit closure
@@ -73,6 +76,7 @@ class Dealer {
 
         // show content (no return)
         echo $Content;
+        return null;
     }
 
 
@@ -81,8 +85,8 @@ class Dealer {
      * Closure must return data that need to be stored in cache and echo nothing.
      *
      * @param string $Identifier
-     * @param closure $Closure
-	 * @param closure $OnCacheHit
+     * @param callable $Closure
+	 * @param callable $OnCacheHit
      * @return mixed
      */
     public function Get($Identifier, $Closure, $OnCacheHit=null) {
@@ -93,7 +97,7 @@ class Dealer {
         // should bypass caching
         if (!$this->Enabled) {
             $this->Log('Cache Disabled  "'.$this->Name.'" / '.$Identifier);
-            return call_user_func($Closure);
+            return $this->ExecuteClosure($Closure, false);
         }
 
         // try to fetch from storage
@@ -101,7 +105,7 @@ class Dealer {
 
         // execute closure if not found
         if ($Content === false) {
-            $Content= call_user_func($Closure);
+            $Content= $this->ExecuteClosure($Closure, false);
             $this->Save($Identifier, $Content);
         } else if ($OnCacheHit) {
         	// otherwise execute on-cache-hit closure
@@ -110,6 +114,32 @@ class Dealer {
 
         // return content
         return $Content;
+    }
+
+
+    /**
+     * Run closure and capture its result or echoed output.
+     * As side effect measurements will be send to controller.
+     *
+     * @param callable $Closure
+     * @param bool $CaptureOutput
+     * @return mixed
+     */
+    protected function ExecuteClosure($Closure, $CaptureOutput) {
+
+        if ($CaptureOutput) {
+            ob_start();
+        }
+
+        // execute and measure
+        $this->MeasuringClosureStart();
+        $Result= call_user_func($Closure);
+        $this->MeasuringClosureEnd();
+
+        // what to return
+        return $CaptureOutput
+            ? ob_get_clean()
+            : $Result;
     }
 
 
@@ -222,7 +252,7 @@ class Dealer {
         if (strlen($Key) > 128) {
             $this->Log('Error: key too long:  "'.$this->Name.'" / '.$Key);
             trigger_error('fsCacheController: key "'.$Key.'" is too long.', E_USER_ERROR);
-            return false;
+            return false;   // just in case
         }
 
         // check is there any forbidden char
@@ -230,7 +260,7 @@ class Dealer {
         if ($Count > 0) {
             $this->Log('Error: key contains invalid chars:  "'.$this->Name.'" / '.$Key);
             trigger_error('fsCacheController: key "'.$Key.'" contains invalid characters.', E_USER_ERROR);
-            return false;
+            return false;   // just in case
         }
 
         // success
@@ -299,6 +329,12 @@ class Dealer {
     }
 
 
+    /**
+     * Announce an event.
+     *
+     * @param string $EventName
+     * @param string $Message
+     */
     protected function Event($EventName, $Message) {
 
         $this->Log("$EventName:  $Message");
@@ -307,15 +343,35 @@ class Dealer {
 
 
     /**
-     *
+     * Start measuring closure execution.
      */
-    protected function GarbageCollector() {
-
-        // prođi kroz sve zapise i pobriši zastarele po TTL-u
+    protected function MeasuringClosureStart() {
+        global $wpdb;
+        $this->MeasuringInfo= [
+            microtime(true),
+            $wpdb->num_queries,
+        ];
     }
 
 
+    /**
+     * Finish measuring closure execution.
+     */
+    protected function MeasuringClosureEnd() {
+        global $wpdb;
+        $this->Controller->AddInClosureStat(
+            microtime(true) - $this->MeasuringInfo[0],
+            $wpdb->num_queries - $this->MeasuringInfo[1]
+        );
+    }
+
+    /**
+     * Utility to release some disk space by removing expired records.
+     */
+    protected function GarbageCollector() {
+
+        // @TODO: walk thru all records and delete items expired by TTL
+    }
+
 }
 
-
-?>

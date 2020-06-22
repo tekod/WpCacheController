@@ -1,4 +1,4 @@
-<?php namespace FWS\CacheController;
+<?php namespace FWS\fsCacheController;
 
 /**
  * Common task: register group action for monitoring any change in WooCommerce.
@@ -50,7 +50,7 @@ class InvalidateWooCommerce {
     /**
      * Hook listener for "wp_trash_post" and "delete_post" actions.
      *
-     * @param type $PostID
+     * @param int $PostID
      */
     public static function TriggerWooCommerceAction($PostID) {
 
@@ -61,4 +61,3 @@ class InvalidateWooCommerce {
 
 }
 
-?>
