@@ -208,7 +208,7 @@ class CacheController {
 
         // get current action
         $HookName= current_filter();
-        $HookNameParts= explode('(', $HookName);
+        $HookNameParts= explode(' (', $HookName);
         $SearchName= isset($HookNameParts[1]) ? $HookNameParts[0] : $HookName;
 
         // find profiles containing that action and execute invalidation
@@ -222,7 +222,7 @@ class CacheController {
         foreach($this->GroupActions as $Name => $List) {
             if (in_array($HookName, $List)) {
                 //$this->Log("[GroupAction: {$Name}]  triggered by action: {$HookName}");
-                do_action("$Name($HookName)");
+                do_action("$Name ($HookName)");
             }
         }
     }
@@ -274,7 +274,7 @@ class CacheController {
     protected function Autoloader($Class) {
 
         $Parts= array_filter(explode('\\', $Class));
-        if ($Parts[0].'\\'.$Parts[1] <> __NAMESPACE__) {
+        if (isset($Parts[1]) && $Parts[0].'\\'.$Parts[1] <> __NAMESPACE__) {
             return null;
         }
         unset($Parts[0], $Parts[1]);
@@ -390,11 +390,24 @@ class CacheController {
      */
     public function OnShutdown() {
 
+    	// update
         if ($this->LogEnabled && !empty($this->Stats)) {
             $this->UpdateStats();
         }
 
-        if ($this->Settings['Widget'] && !is_admin() && !wp_is_json_request() && (!defined('DOING_CRON') || !DOING_CRON)) {
+		// don't go further if a fatal has occurred
+		$LastError= error_get_last();
+		if ($LastError !== null && in_array($LastError['type'], array(E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR))) {
+			return;
+		}
+
+		// display widget
+        if ($this->Settings['Widget']													// show if widget enabled
+			&& !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)	// hide in AJAX requests
+			&& (!defined('DOING_CRON') || !DOING_CRON)							// hide in cron requests
+			&& current_user_can('manage_options')								// only admin can see it
+			&& !is_admin() 																// hide on dashboard pages
+		) {
             $this->ShowWidget();
         }
     }
@@ -404,13 +417,6 @@ class CacheController {
      * Display widget.
      */
     protected function ShowWidget() {
-
-        // don't show if a fatal has occurred
-        $LastError= error_get_last();
-        if ($LastError !== null && in_array($LastError['type'], array(E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR))) {
-            return;
-        }
-
         ?>
             <div id="fsCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
 				 style="position:fixed; padding:2px 2em; right:-3.8em; top:12rem; width:0;
