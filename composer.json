@@ -1,0 +1,24 @@
+{
+    "name": "tekod/wp-cache-controller",
+    "description": "WordPress library for caching arbitrary data with automatic invalidation.",
+    "keywords": [
+        "wp", "wordpress", "cache", "caching", "data"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://gitlab.com/tekod/WpCacheController",
+    "authors": [{
+        "name": "miroslav curcic",
+        "email": "office@tekod.com",
+        "homepage": "https://www.tekod.com"
+    }],
+    "require": {
+        "php": ">=7.0.0"
+    },   
+    "autoload": {
+       "psr-4": {		
+            "Tekod\\WpCacheController\\": ""
+        }
+    },
+    "minimum-stability": "dev"
+}
