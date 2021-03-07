@@ -1,10 +1,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Issues](https://img.shields.io/github/issues/tekod/mScan.svg)](https://github.com/tekod/mScan/issues)
+[![Issues](https://img.shields.io/github/issues/tekod/WpCacheController.svg)](https://github.com/tekod/WpCacheController/issues)
 
-# fsCacheController
+# WpCacheController
 WordPress library for caching arbitrary data with automatic invalidation 
 
-fsCacheController is WordPress library for caching arbitrary data with automatic invalidation.
+WpCacheController is WordPress library for caching arbitrary data with automatic invalidation.
 It is framework-agnostic so no other packages are needed for its proper operation.
 
 This lib constantly updates log and statistics records to inform an administrator about cache usage.
@@ -21,8 +21,8 @@ for example: navigation block, category tree, footer, the latest blog posts bloc
 
 Put this in "functions.php" of yours theme to initialize the controller where parameter is path to configuration file:<br>
 ```
-use FWS\fsCacheController\CacheController;
-require_once 'inc/fsCacheController/CacheController.php';  // optional if you use some autoloader
+use Tekod\WpCacheController\CacheController;
+require_once 'inc/WpCacheController/CacheController.php';  // optional if you use some autoloader
 CacheController::Init(__DIR__.'/config/cachecontroller.config.php');
 ```
 

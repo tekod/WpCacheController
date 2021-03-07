@@ -1,4 +1,4 @@
-<?php namespace FWS\fsCacheController;
+<?php namespace Tekod\WpCacheController;
 
 
 /**
@@ -53,7 +53,7 @@ class Dealer {
     public function Output($Identifier, $Closure, $OnCacheHit=null) {
 
         // modification of id
-        $Identifier= apply_filters('fsCacheController_Id', $Identifier, $this->Name);
+        $Identifier= apply_filters('WpCacheController_Id', $Identifier, $this->Name);
 
         // should bypass caching
         if (!$this->Enabled) {
@@ -92,7 +92,7 @@ class Dealer {
     public function Get($Identifier, $Closure, $OnCacheHit=null) {
 
         // modification of id
-        $Identifier= apply_filters('fsCacheController_Id', $Identifier, $this->Name);
+        $Identifier= apply_filters('WpCacheController_Id', $Identifier, $this->Name);
 
         // should bypass caching
         if (!$this->Enabled) {
@@ -251,7 +251,7 @@ class Dealer {
         // do not allow to long keys
         if (strlen($Key) > 128) {
             $this->Log('Error: key too long:  "'.$this->Name.'" / '.$Key);
-            trigger_error('fsCacheController: key "'.$Key.'" is too long.', E_USER_ERROR);
+            trigger_error('WpCacheController: key "'.$Key.'" is too long.', E_USER_ERROR);
             return false;   // just in case
         }
 
@@ -259,7 +259,7 @@ class Dealer {
         preg_replace('/[^'.$this->ValidNameChars.']/', '', $Key, -1, $Count);
         if ($Count > 0) {
             $this->Log('Error: key contains invalid chars:  "'.$this->Name.'" / '.$Key);
-            trigger_error('fsCacheController: key "'.$Key.'" contains invalid characters.', E_USER_ERROR);
+            trigger_error('WpCacheController: key "'.$Key.'" contains invalid characters.', E_USER_ERROR);
             return false;   // just in case
         }
 

@@ -1,4 +1,4 @@
-<?php namespace FWS\fsCacheController;
+<?php namespace Tekod\WpCacheController;
 
 
 /**
@@ -11,11 +11,11 @@ class Dashboard {
     protected static $Config;
 
     // form actions
-    protected static $ActionSettings= 'fscachecontroller_settings';
-    protected static $ActionClearCache= 'fscachecontroller_clearcache';
+    protected static $ActionSettings= 'wpcachecontroller_settings';
+    protected static $ActionClearCache= 'wpcachecontroller_clearcache';
 
     // "options" table identifier
-    protected static $OptionName= 'fsCacheController_Settings';
+    protected static $OptionName= 'WpCacheController_Settings';
 
 
     /**
@@ -54,8 +54,8 @@ class Dashboard {
      */
     public static function RenderAdminNotice() {
 
-        $Message= get_transient('fsCacheControllerAdminMsg');
-        delete_transient('fsCacheControllerAdminMsg');
+        $Message= get_transient('WpCacheControllerAdminMsg');
+        delete_transient('WpCacheControllerAdminMsg');
 
         switch ($Message) {
             case 'updated': echo '<div class="updated"><p>Settings saved.</p></div>'; return;
@@ -103,15 +103,15 @@ class Dashboard {
             <h2>Settings</h2>
             <form action="admin-post.php" method="post" style="border:1px solid #ddd; background-color:#f8f8f8; padding:1em 2em; width:30em">
                 <label style="display:block; padding:1em 0">
-                    <input type="checkbox" name="fsCacheController_Enabled" id="enabled" value="1" <?php echo $Settings['Enabled'] ? 'checked="checked"' : ''; ?>/> Enable caching
+                    <input type="checkbox" name="WpCacheController_Enabled" id="enabled" value="1" <?php echo $Settings['Enabled'] ? 'checked="checked"' : ''; ?>/> Enable caching
                 </label>
                 <hr>
                 <label style="display:block; padding:1em 0">
-                    <input type="checkbox" name="fsCacheController_Logging" id="logging" value="1" <?php echo $Settings['Logging'] ? 'checked="checked"' : ''; ?>/> Enable logging events and statistics
+                    <input type="checkbox" name="WpCacheController_Logging" id="logging" value="1" <?php echo $Settings['Logging'] ? 'checked="checked"' : ''; ?>/> Enable logging events and statistics
                 </label>
                 <hr>
                 <label style="display:block; padding:1em 0">
-                    <input type="checkbox" name="fsCacheController_Widget" id="widget" value="1" <?php echo $Settings['Widget'] ? 'checked="checked"' : ''; ?>/> Show widget on frontend
+                    <input type="checkbox" name="WpCacheController_Widget" id="widget" value="1" <?php echo $Settings['Widget'] ? 'checked="checked"' : ''; ?>/> Show widget on frontend
                 </label>
                 <hr>
                 <?php submit_button(); ?>
@@ -176,14 +176,14 @@ class Dashboard {
 
         // update settings
         $Settings= [
-            'Enabled'=> boolval($_POST['fsCacheController_Enabled'] ?? ''),
-            'Logging'=> boolval($_POST['fsCacheController_Logging'] ?? ''),
-            'Widget'=> boolval($_POST['fsCacheController_Widget'] ?? ''),
+            'Enabled'=> boolval($_POST['WpCacheController_Enabled'] ?? ''),
+            'Logging'=> boolval($_POST['WpCacheController_Logging'] ?? ''),
+            'Widget'=> boolval($_POST['WpCacheController_Widget'] ?? ''),
         ];
         update_option(static::$OptionName, serialize($Settings));
 
         // prepare confirmation message
-        set_transient('fsCacheControllerAdminMsg', 'updated');
+        set_transient('WpCacheControllerAdminMsg', 'updated');
 
         // redirect to viewing context
         wp_safe_redirect(urldecode($_POST['_wp_http_referer']));
@@ -208,7 +208,7 @@ class Dashboard {
         CacheController::GetInstance()->InvalidateAllProfiles();
 
         // prepare confirmation message
-        set_transient('fsCacheControllerAdminMsg', 'cleared');
+        set_transient('WpCacheControllerAdminMsg', 'cleared');
 
         // redirect to viewing context
         wp_safe_redirect(urldecode($_POST['_wp_http_referer']));

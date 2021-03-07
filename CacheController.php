@@ -1,4 +1,4 @@
-<?php namespace FWS\fsCacheController;
+<?php namespace Tekod\WpCacheController;
 
 
 /**
@@ -46,7 +46,7 @@ class CacheController {
 
         // add missing config options
         $Config += [
-            'Dir'        => wp_get_upload_dir()['basedir']."/fsCacheController",
+            'Dir'        => wp_get_upload_dir()['basedir']."/WpCacheController",
             'Autoloader'  => false,
 			'Profiles'     => [],
             'CustomActions' => [],
@@ -105,7 +105,7 @@ class CacheController {
         add_action('all', array($this, 'OnAllAction'));
 
         // dispatch event
-        do_action('fsCacheController-Init');
+        do_action('WpCacheController-Init');
 
         // hook on shutdown
         register_shutdown_function(array($this, 'OnShutdown'));
@@ -156,7 +156,7 @@ class CacheController {
 
         // prevent fatal error
         if (!isset($this->Profiles[$Name])) {
-            wp_die('fsCacheController profile "'.$Name.'" not found.');
+            wp_die('WpCacheController profile "'.$Name.'" not found.');
         }
 
         // build dealer
@@ -188,7 +188,7 @@ class CacheController {
      */
     public static function GetSettings() {
 
-        $SettingsDump= get_option('fsCacheController_Settings');
+        $SettingsDump= get_option('WpCacheController_Settings');
         $Settings= @unserialize($SettingsDump);
         if (!is_array($Settings)) {
             $Settings= [];
@@ -418,11 +418,11 @@ class CacheController {
      */
     protected function ShowWidget() {
         ?>
-            <div id="fsCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
+            <div id="WpCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
 				 style="position:fixed; padding:2px 2em; right:-3.8em; top:12rem; width:0;
                 	background-color:#fec; transition: all ease 1s; border:2px solid #000; border-left:6px double #000;
                 	z-index:9999; cursor:pointer; font-size:12px; line-height:14px; white-space:nowrap">
-                <b style="font-style:italic; color:gray; display:block; margin:2px 0 2px -1em;">fsCacheController</b>
+                <b style="font-style:italic; color:gray; display:block; margin:2px 0 2px -1em;">WpCacheController</b>
                 Cache hits: <?php echo intval($this->Stats['Cache Hit'] ?? 0); ?><br>
                 Time in cache misses: <?php echo number_format($this->InClosureStats[0], 4); ?> s.<br>
                 Queries in cache misses: <?php echo intval($this->InClosureStats[1]); ?>
