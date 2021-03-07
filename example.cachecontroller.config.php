@@ -7,7 +7,7 @@ return [
         // "woo" profile can handle changes on woocommerce products
         'woo'=> [
             'Actions'=> [       // invalidate on these actions
-                'fsCacheController_InvalidateWooCommerce',   // custom action: capture all WooCommerce product changes
+                'WpCacheController_InvalidateWooCommerce',   // custom action: capture all WooCommerce product changes
             ],
             'TTL'=> 30*86400,	// cache expire (in seconds)
             'Enabled'=> true,	// enable caching (this can be disabled on dashboard settings)
@@ -37,12 +37,12 @@ return [
 
     // register these custom actions
     'CustomActions'=> [
-        \FWS\fsCacheController\InvalidateWooCommerce::class,
+        \Tekod\WpCacheController\InvalidateWooCommerce::class,
      ],
 
     // enable internal autoloader
     'Autoloader'=> true,
 
     // directory where to store data
-    'Dir'=> wp_get_upload_dir()['basedir']."/fsCacheController",
+    'Dir'=> wp_get_upload_dir()['basedir']."/WpCacheController",
 ];
