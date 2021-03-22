@@ -19,6 +19,5 @@
        "psr-4": {		
             "Tekod\\WpCacheController\\": ""
         }
-    },
-    "minimum-stability": "dev"
+    }
 }
