@@ -368,7 +368,7 @@ class CacheController {
      */
     public function AddStatistics($EventName) {
 
-        $this->Stats[$EventName]++;
+        $this->Stats[$EventName]= ($this->Stats[$EventName] ?? 0) + 1;
     }
 
 
