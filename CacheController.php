@@ -101,6 +101,11 @@ class CacheController {
         	$this->SetProfile($Name, $Profile['Actions'], $Profile['TTL'], $Profile['Logging'], $Profile['Enabled']);
 		}
 
+        // skip if not enabled
+        if (!$this->Settings['Enabled']) {
+            return;
+        }
+
         // monitor all actions
         add_action('all', array($this, 'OnAllAction'));
 
