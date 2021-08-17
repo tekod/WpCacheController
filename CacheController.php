@@ -18,9 +18,15 @@ class CacheController {
     // path to directory for data
     protected $StorageDir;
 
+    // file extension of cache files
+    protected $FileExt;
+
     // global permission to store logs
     protected $LogEnabled;
 
+    // maximum length of log file
+    protected $LogSizeLimit = 250*1024;       // 250 kb
+    //
     // filename of master-tag
     protected $MasterTag= '.master.tag';
 
@@ -28,10 +34,11 @@ class CacheController {
     protected $Stats= [];
 
     // buffer for in-closure stats
-    protected $InClosureStats= [0,0];
+    protected $InClosureStats= [0, 0];
 
     // singleton instance
     protected static $Instance;
+
 
 
     /**
@@ -46,7 +53,8 @@ class CacheController {
 
         // add missing config options
         $Config += [
-            'Dir'        => wp_get_upload_dir()['basedir']."/WpCacheController",
+            'Dir'       => wp_get_upload_dir()['basedir']."/WpCacheController",
+			'FileExt'    => 'php',
             'Autoloader'  => false,
 			'Profiles'     => [],
             'CustomActions' => [],
@@ -85,6 +93,8 @@ class CacheController {
      */
     protected function __construct($Config) {
 
+		$this->FileExt= $Config['FileExt'];
+
         // load settings
         $this->Settings= $this->GetSettings();
 
@@ -98,6 +108,12 @@ class CacheController {
 
         // init profiles
         foreach($Config['Profiles'] as $Name => $Profile) {
+            $Profile += [
+                'Actions'  => [],
+                'TTL'      => 86400,
+                'Logging'  => true,
+                'Enabled'  => true,
+            ];
         	$this->SetProfile($Name, $Profile['Actions'], $Profile['TTL'], $Profile['Logging'], $Profile['Enabled']);
 		}
 
@@ -142,6 +158,7 @@ class CacheController {
             'Name'=> $Name,
             'InvalidatingActions'=> $InvalidatingActions,
             'TTL'=> $TTL,
+			'FileExt'=> $this->FileExt,
             'Logging'=> $Logging && $this->Settings['Logging'],
             'Enabled'=> $Enabled && $this->Settings['Enabled'],
         ];
@@ -306,6 +323,7 @@ class CacheController {
         // ensure directory existence
         if (!is_dir($this->StorageDir)) {
             mkdir($this->StorageDir, 0777, true);
+			file_put_contents($this->StorageDir.'/.htaccess', 'deny from all');
             //touch($this->StorageDir.'/'.$this->MasterTag);
         }
 
@@ -314,14 +332,9 @@ class CacheController {
         touch($Path);
 
         // trim log file if it become too big
-        $FileSize= filesize($Path);
-        $Limit= strpos(home_url(), '.local') === false
-            ? 250*1024       // 250 kb on servers
-            :  50*1024;      // 50 kb on development environment
-        if ($FileSize > $Limit) {
-            $Dump= $FileSize > 2*1024*1024
-                ? ''            // 2 Mb is too big to fit in memory, just empty file
-                : '  .  .  .  . . . ......'.substr(file_get_contents($Path), -($Limit / 2));
+        if (filesize($Path) > $this->LogSizeLimit) {
+            $Dump= '  .  .  .  . . . ......'
+                . file_get_contents($Path, false, null, -($this->LogSizeLimit * 0.75));
             file_put_contents($Path, $Dump);
         }
     }
@@ -407,11 +420,11 @@ class CacheController {
 		}
 
 		// display widget
-        if ($this->Settings['Widget']													// show if widget enabled
+        if ($this->Settings['Widget']                                           // show if widget enabled
 			&& !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)	// hide in AJAX requests
-			&& (!defined('DOING_CRON') || !DOING_CRON)							// hide in cron requests
-			&& current_user_can('manage_options')								// only admin can see it
-			&& !is_admin() 																// hide on dashboard pages
+			&& (!defined('DOING_CRON') || !DOING_CRON)                          // hide in cron requests
+			&& current_user_can('manage_options')                               // only admin can see it
+			&& !is_admin()                                                      // hide on dashboard pages
 		) {
             $this->ShowWidget();
         }

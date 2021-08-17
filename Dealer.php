@@ -10,6 +10,7 @@ class Dealer {
     protected $Name;
     protected $InvalidatingActions;
     protected $TTL;
+    protected $FileExt;
     protected $Logging;
     protected $Enabled;
 
@@ -36,6 +37,7 @@ class Dealer {
         $this->Name= $Config['Name'];
         $this->InvalidatingActions= $Config['InvalidatingActions'];
         $this->TTL= $Config['TTL'];
+        $this->FileExt= $Config['FileExt'];
         $this->Logging= $Config['Logging'];
         $this->Enabled= $Config['Enabled'];
     }
@@ -219,9 +221,15 @@ class Dealer {
         }
 
         // save file
-        $Dump= "<?php return ".var_export(serialize($Content), true)."; ?>";
+        $Dump= $this->FileExt === 'php'
+			? "<?php return ".var_export(serialize($Content), true)."; ?>"
+        	: serialize($Content);
 		touch($Path);       // must "touch" because WPEngine will preserve timestamp if file content is same
-        return file_put_contents($Path, $Dump) !== false;
+        $Success= file_put_contents($Path, $Dump) !== false;
+        if (!$Success) {
+        	$this->Log('Error saving cache-file: '.$Path);
+		}
+       	return $Success;
     }
 
 
@@ -234,7 +242,7 @@ class Dealer {
     protected function GetFilePath($Key) {
 
         return $this->IsValidKey($Key)
-            ? $this->Controller->GetStorageDir()."/{$this->Name}/{$Key}.php"
+            ? $this->Controller->GetStorageDir()."/{$this->Name}/{$Key}.{$this->FileExt}"
             : false;
     }
 
@@ -309,7 +317,9 @@ class Dealer {
     protected function LoadFile($FilePath) {
 
         // load file
-        $Entry= @include $FilePath;
+        $Entry= $this->FileExt === 'php'
+			? @include $FilePath
+			: file_get_contents($FilePath);
 
         // return entry
         return $Entry;
