@@ -50,6 +50,9 @@ class CacheController {
 
         // load config (dynamic inclusion)
         $Config= include $ConfigPath;
+        if (!is_array($Config)) {
+            $Config= [];
+        }
 
         // add missing config options
         $Config += [
