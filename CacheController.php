@@ -24,6 +24,9 @@ class CacheController {
     // global permission to store logs
     protected $LogEnabled;
 
+    // flag for lazy logger initialization
+    protected $LogInitied = false;
+
     // maximum length of log file
     protected $LogSizeLimit = 250*1024;       // 250 kb
     //
@@ -57,24 +60,15 @@ class CacheController {
         // add missing config options
         $Config += [
             'Dir'       => wp_get_upload_dir()['basedir']."/WpCacheController",
-			'FileExt'    => 'php',
+            'FileExt'    => 'php',
             'Autoloader'  => false,
-			'Profiles'     => [],
+            'Profiles'     => [],
             'CustomActions' => [],
         ];
 
         // instantiate this class
         static::$Instance= new static($Config);
-
-        // register custom actions, this cannot be done in constructor because it need $Instance variable
-        foreach($Config['CustomActions'] as $Class) {
-            $Class::Register();
-        }
-
-        // register admin settings page
-        if (is_admin()) {
-          Dashboard::Register($Config);
-        }
+        static::$Instance->Run($Config);
     }
 
 
@@ -94,20 +88,29 @@ class CacheController {
      *
      * @param array $Config
      */
-    protected function __construct($Config) {
-
-		$this->FileExt= $Config['FileExt'];
+    protected function __construct(array $Config) {
 
         // load settings
         $this->Settings= $this->GetSettings();
 
-        // init log storage
-        $this->InitLog($Config);
+        // set vars
+        $this->LogEnabled= $this->Settings['Logging'];
+        $this->StorageDir= $Config['Dir'];
+        $this->FileExt= $Config['FileExt'];
 
         // register autoloader
         if ($Config['Autoloader']) {
-            spl_autoload_register(array($this, 'Autoloader'), true, false);
+            spl_autoload_register([$this, 'Autoloader'], true, false);
         }
+    }
+
+
+    /**
+     * Run and setup everything.
+     *
+     * @param array $Config
+     */
+    public function Run(array $Config) {
 
         // init profiles
         foreach($Config['Profiles'] as $Name => $Profile) {
@@ -117,22 +120,32 @@ class CacheController {
                 'Logging'  => true,
                 'Enabled'  => true,
             ];
-        	$this->SetProfile($Name, $Profile['Actions'], $Profile['TTL'], $Profile['Logging'], $Profile['Enabled']);
-		}
+            $this->SetProfile($Name, $Profile['Actions'], $Profile['TTL'], $Profile['Logging'], $Profile['Enabled']);
+        }
+
+        // hook on shutdown
+        register_shutdown_function(array($this, 'OnShutdown'));
+
+        // register admin settings page
+        if (is_admin()) {
+            Dashboard::Register($Config);
+        }
 
         // skip if not enabled
         if (!$this->Settings['Enabled']) {
             return;
         }
 
-        // monitor all actions
-        add_action('all', array($this, 'OnAllAction'));
-
         // dispatch event
         do_action('WpCacheController-Init');
 
-        // hook on shutdown
-        register_shutdown_function(array($this, 'OnShutdown'));
+        // register custom actions
+        foreach($Config['CustomActions'] as $Class) {
+            $Class::Register();
+        }
+
+        // setup hooks
+        $this->SetHooks();
     }
 
 
@@ -161,7 +174,7 @@ class CacheController {
             'Name'=> $Name,
             'InvalidatingActions'=> $InvalidatingActions,
             'TTL'=> $TTL,
-			'FileExt'=> $this->FileExt,
+            'FileExt'=> $this->FileExt,
             'Logging'=> $Logging && $this->Settings['Logging'],
             'Enabled'=> $Enabled && $this->Settings['Enabled'],
         ];
@@ -181,7 +194,7 @@ class CacheController {
 
         // prevent fatal error
         if (!isset($this->Profiles[$Name])) {
-            wp_die('WpCacheController profile "'.$Name.'" not found.');
+            wp_die('WpCacheController profile "'.esc_html($Name).'" not found.');
         }
 
         // build dealer
@@ -219,35 +232,60 @@ class CacheController {
             $Settings= [];
         }
         return $Settings + [
-            'Enabled'=> false,
-            'Logging'=> false,
-            'Widget' => false,
-        ];
+                'Enabled'=> false,
+                'Logging'=> false,
+                'Widget' => false,
+            ];
     }
 
 
     /**
-     * This method is listener of "all" hook action.
+     * Setup invalidation hooks for all registered profiles.
      */
-    public function OnAllAction() {
+    protected function SetHooks() {
+
+        $AllActions= [];
+        foreach ($this->Profiles as $Profile) {
+            $AllActions= array_merge($AllActions, $Profile['InvalidatingActions']);
+        }
+        foreach (array_filter(array_unique($AllActions)) as $Action) {
+            add_action($Action, [$this, 'OnNormalActions']);
+        }
+        $AllGroupActions= array_merge(...array_values($this->GroupActions));
+        foreach (array_filter(array_unique($AllGroupActions)) as $Action) {
+            add_action($Action, [$this, 'OnGroupActions']);
+        }
+    }
+
+
+    /**
+     * This method is listener of all registered normal actions.
+     */
+    public function OnNormalActions() {
 
         // get current action
         $HookName= current_filter();
-        $HookNameParts= explode(' (', $HookName);
-        $SearchName= isset($HookNameParts[1]) ? $HookNameParts[0] : $HookName;
 
         // find profiles containing that action and execute invalidation
         foreach($this->Profiles as $Name => $Profile) {
-            if (in_array($SearchName, $Profile['InvalidatingActions'])) {
+            if (in_array($HookName, $Profile['InvalidatingActions'])) {
                 $this->GetDealer($Name)->Invalidate($HookName);
             }
         }
+    }
+
+
+    /**
+     * This method is listener of all registered group actions.
+     */
+    public function OnGroupActions() {
 
         // search in group actions and trigger custom action if found
+        $HookName= current_filter();
         foreach($this->GroupActions as $Name => $List) {
             if (in_array($HookName, $List)) {
-                //$this->Log("[GroupAction: {$Name}]  triggered by action: {$HookName}");
-                do_action("$Name ($HookName)");
+                $this->Log("GroupAction {$Name}, triggered by action: {$HookName}");
+                do_action($Name);
             }
         }
     }
@@ -314,19 +352,14 @@ class CacheController {
 
 
     /**
-     * Initialize logging system.
-     *
-     * @param array $Config
+     * Lazy initializing of logging system.
      */
-    protected function InitLog($Config) {
-
-        $this->LogEnabled= $this->Settings['Logging'];
-        $this->StorageDir= $Config['Dir'];
+    protected function InitLog() {
 
         // ensure directory existence
         if (!is_dir($this->StorageDir)) {
             mkdir($this->StorageDir, 0777, true);
-			file_put_contents($this->StorageDir.'/.htaccess', 'deny from all');
+            file_put_contents($this->StorageDir.'/.htaccess', 'deny from all');
             //touch($this->StorageDir.'/'.$this->MasterTag);
         }
 
@@ -334,11 +367,11 @@ class CacheController {
         $Path= $this->StorageDir.'/Log.txt';
         touch($Path);
 
-        // trim log file if it become too big
+        // trim log file if it became too big
         if (filesize($Path) > $this->LogSizeLimit) {
-            $Dump= '  .  .  .  . . . ......'
-                . file_get_contents($Path, false, null, -($this->LogSizeLimit * 0.75));
-            file_put_contents($Path, $Dump);
+            $Size = $this->LogSizeLimit * 0.9;
+            $Dump= file_get_contents($Path, false, null, -$Size);
+            file_put_contents($Path, '  .  .  .  . . . ......' . $Dump);
         }
     }
 
@@ -350,9 +383,18 @@ class CacheController {
      */
     public function Log($Message) {
 
+        // logging must be enabled
         if (!$this->LogEnabled) {
             return;
         }
+
+        // init log storage
+        if (!$this->LogInitied) {
+            $this->InitLog();
+            $this->LogInitied= true;
+        }
+
+        // store message
         $Path= $this->StorageDir.'/Log.txt';
         $Message= "\r\n".date('r').'  '.$Message;
         file_put_contents($Path, $Message, FILE_APPEND);
@@ -411,24 +453,24 @@ class CacheController {
      */
     public function OnShutdown() {
 
-    	// update
+        // update statistics
         if ($this->LogEnabled && !empty($this->Stats)) {
             $this->UpdateStats();
         }
 
-		// don't go further if a fatal has occurred
-		$LastError= error_get_last();
-		if ($LastError !== null && in_array($LastError['type'], array(E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR))) {
-			return;
-		}
+        // don't go further if a fatal error has occurred
+        $LastError= error_get_last();
+        if ($LastError !== null && in_array($LastError['type'], array(E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR))) {
+            return;
+        }
 
-		// display widget
-        if ($this->Settings['Widget']                                           // show if widget enabled
-			&& !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)	// hide in AJAX requests
-			&& (!defined('DOING_CRON') || !DOING_CRON)                          // hide in cron requests
-			&& current_user_can('manage_options')                               // only admin can see it
-			&& !is_admin()                                                      // hide on dashboard pages
-		) {
+        // display widget
+        if ($this->Settings['Widget']                                                            // show if widget enabled
+            && !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)     // hide in AJAX requests
+            && (!defined('DOING_CRON') || !DOING_CRON)                              // hide in cron requests
+            && current_user_can('manage_options')                                       // only admin can see it
+            && !is_admin()                                                                       // hide on dashboard pages
+        ) {
             $this->ShowWidget();
         }
     }
@@ -439,15 +481,15 @@ class CacheController {
      */
     protected function ShowWidget() {
         ?>
-            <div id="WpCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
-				 style="position:fixed; padding:2px 2em; right:-3.8em; top:12rem; width:0;
-                	background-color:#fec; transition: all ease 1s; border:2px solid #000; border-left:6px double #000;
-                	z-index:9999; cursor:pointer; font-size:12px; line-height:14px; white-space:nowrap">
-                <b style="font-style:italic; color:gray; display:block; margin:2px 0 2px -1em;">WpCacheController</b>
-                Cache hits: <?php echo intval($this->Stats['Cache Hit'] ?? 0); ?><br>
-                Time in cache misses: <?php echo number_format($this->InClosureStats[0], 4); ?> s.<br>
-                Queries in cache misses: <?php echo intval($this->InClosureStats[1]); ?>
-            </div>
+        <div id="WpCacheController-Widget" onclick="this.style.width= this.style.width === '0px' ? '25em' : '0px';"
+             style="position:fixed; padding:2px 2em; right:-3em; top:12rem; width:0; background-color:#fec;
+                	transition: all ease 1s; border:2px solid #000; border-left:6px double #000; z-index:9999;
+                	cursor:pointer; text-align:left; font-size:12px; line-height:14px; white-space:nowrap">
+            <b style="font-style:italic; color:gray; display:block; margin:2px 0 2px -1em;">WpCacheController</b>
+            Cache hits: <?php echo intval($this->Stats['Cache Hit'] ?? 0); ?><br>
+            Time in cache misses: <?php echo number_format($this->InClosureStats[0] * 1000, 1); ?> ms<br>
+            Queries in cache misses: <?php echo intval($this->InClosureStats[1]); ?>
+        </div>
         <?php
     }
 
