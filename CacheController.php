@@ -510,7 +510,7 @@ class CacheController {
             }
         }
         // update values
-        $Period= $Parsed['Period'] ?: date('r').' - 0';
+        $Period= $Parsed['Period'] ?? date('r').' - 0';
         $Stats= $Parsed;
         foreach($this->Stats as $k => $v) {	// transfer values from buffer
             $Stats[$k]= isset($Parsed[$k]) ? intval($Parsed[$k]) + $v : $v;
