@@ -465,11 +465,12 @@ class CacheController {
         }
 
         // display widget
-        if ($this->Settings['Widget']                                                            // show if widget enabled
-            && !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)     // hide in AJAX requests
-            && (!defined('DOING_CRON') || !DOING_CRON)                              // hide in cron requests
-            && current_user_can('manage_options')                                       // only admin can see it
-            && !is_admin()                                                                       // hide on dashboard pages
+        if ($this->Settings['Widget']                                                           // show if widget enabled
+            && !wp_is_json_request() && (!defined('DOING_AJAX') || !DOING_AJAX)    // hide in AJAX requests
+            && (!defined('REST_REQUEST') || !REST_REQUEST)                         // hide in REST requests
+            && (!defined('DOING_CRON') || !DOING_CRON)                             // hide in cron requests
+            && current_user_can('manage_options')                                               // only admin can see it
+            && !is_admin()                                                                      // hide on dashboard pages
         ) {
             $this->ShowWidget();
         }
